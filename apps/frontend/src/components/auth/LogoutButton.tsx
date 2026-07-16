@@ -17,7 +17,6 @@ export function LogoutButton() {
 
   const handleLogout = async () => {
     if (isLoggingOut) return;
-
     setIsLoggingOut(true);
 
     try {
@@ -26,8 +25,8 @@ export function LogoutButton() {
       Cookies.remove("firebase-token");
       Cookies.remove("auth-token");
       disconnect();
-      router.refresh(); 
       router.push("/login");
+      router.refresh(); 
     }
   };
 
