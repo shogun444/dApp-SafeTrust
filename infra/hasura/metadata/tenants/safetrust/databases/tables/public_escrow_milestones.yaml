@@ -1,0 +1,147 @@
+table:
+  name: escrow_milestones
+  schema: public
+configuration:
+  custom_name: escrowMilestones
+  column_config:
+    escrow_id:
+      custom_name: escrowId
+    milestone_id:
+      custom_name: milestoneId
+    due_date:
+      custom_name: dueDate
+    approved_at:
+      custom_name: approvedAt
+    approved_by:
+      custom_name: approvedBy
+    released_at:
+      custom_name: releasedAt
+    released_by:
+      custom_name: releasedBy
+    created_at:
+      custom_name: createdAt
+    updated_at:
+      custom_name: updatedAt
+    tenant_id:
+      custom_name: tenantId
+object_relationships:
+  - name: escrow
+    using:
+      foreign_key_constraint_on: escrow_id
+select_permissions:
+  - role: tenant
+    permission:
+      columns:
+        - id
+        - escrow_id
+        - milestone_id
+        - description
+        - amount
+        - due_date
+        - status
+        - approved_at
+        - approved_by
+        - released_at
+        - released_by
+        - metadata
+        - created_at
+        - updated_at
+        - tenant_id
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              guest_id:
+                _eq: X-Hasura-User-Id
+    comment: Guests can read milestones of the escrows they are the guest on
+  - role: landlord
+    permission:
+      columns:
+        - id
+        - escrow_id
+        - milestone_id
+        - description
+        - amount
+        - due_date
+        - status
+        - approved_at
+        - approved_by
+        - released_at
+        - released_by
+        - metadata
+        - created_at
+        - updated_at
+        - tenant_id
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              marker:
+                _eq: X-Hasura-User-Id
+    comment: Hosts can read milestones of the escrows they marked
+insert_permissions:
+  - role: landlord
+    permission:
+      check:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              marker:
+                _eq: X-Hasura-User-Id
+      columns:
+        - escrow_id
+        - milestone_id
+        - description
+        - amount
+        - due_date
+        - status
+        - metadata
+      set:
+        tenant_id: safetrust
+    comment: Hosts define the milestones of the escrows they marked
+update_permissions:
+  - role: tenant
+    permission:
+      columns:
+        - status
+        - metadata
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              guest_id:
+                _eq: X-Hasura-User-Id
+      check:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              guest_id:
+                _eq: X-Hasura-User-Id
+    comment: Guests can approve milestones on their own escrows
+  - role: landlord
+    permission:
+      columns:
+        - status
+        - description
+        - due_date
+        - metadata
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              marker:
+                _eq: X-Hasura-User-Id
+      check:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - escrow:
+              marker:
+                _eq: X-Hasura-User-Id
+    comment: Hosts can maintain milestones on the escrows they marked

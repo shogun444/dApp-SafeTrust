@@ -1,0 +1,196 @@
+table:
+  name: trustless_work_escrows
+  schema: public
+configuration:
+  custom_name: trustlessWorkEscrows
+  column_config:
+    contract_id:
+      custom_name: contractId
+    escrow_type:
+      custom_name: escrowType
+    asset_code:
+      custom_name: assetCode
+    asset_issuer:
+      custom_name: assetIssuer
+    booking_id:
+      custom_name: bookingId
+    room_id:
+      custom_name: roomId
+    hotel_id:
+      custom_name: hotelId
+    guest_id:
+      custom_name: guestId
+    check_in_date:
+      custom_name: checkInDate
+    check_out_date:
+      custom_name: checkOutDate
+    booking_created_at:
+      custom_name: bookingCreatedAt
+    escrow_metadata:
+      custom_name: escrowMetadata
+    booking_metadata:
+      custom_name: bookingMetadata
+    created_at:
+      custom_name: createdAt
+    updated_at:
+      custom_name: updatedAt
+    tenant_id:
+      custom_name: tenantId
+array_relationships:
+  - name: milestones
+    using:
+      foreign_key_constraint_on:
+        column: escrow_id
+        table:
+          name: escrow_milestones
+          schema: public
+  # trustless_work_webhook_events.contract_id has no FK constraint, so this is
+  # mapped manually against the UNIQUE contract_id on this table.
+  - name: webhookEvents
+    using:
+      manual_configuration:
+        remote_table:
+          name: trustless_work_webhook_events
+          schema: public
+        column_mapping:
+          contract_id: contract_id
+select_permissions:
+  - role: tenant
+    permission:
+      columns:
+        - id
+        - contract_id
+        - marker
+        - approver
+        - releaser
+        - resolver
+        - escrow_type
+        - status
+        - asset_code
+        - asset_issuer
+        - amount
+        - balance
+        - booking_id
+        - room_id
+        - hotel_id
+        - guest_id
+        - check_in_date
+        - check_out_date
+        - booking_created_at
+        - escrow_metadata
+        - booking_metadata
+        - created_at
+        - updated_at
+        - tenant_id
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - guest_id:
+              _eq: X-Hasura-User-Id
+    comment: Guests can read the escrows they are the guest on
+  - role: landlord
+    permission:
+      columns:
+        - id
+        - contract_id
+        - marker
+        - approver
+        - releaser
+        - resolver
+        - escrow_type
+        - status
+        - asset_code
+        - asset_issuer
+        - amount
+        - balance
+        - booking_id
+        - room_id
+        - hotel_id
+        - guest_id
+        - check_in_date
+        - check_out_date
+        - booking_created_at
+        - escrow_metadata
+        - booking_metadata
+        - created_at
+        - updated_at
+        - tenant_id
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - marker:
+              _eq: X-Hasura-User-Id
+    comment: Hosts can read the escrows they marked
+insert_permissions:
+  - role: tenant
+    permission:
+      check:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - guest_id:
+              _eq: X-Hasura-User-Id
+      columns:
+        - contract_id
+        - marker
+        - approver
+        - releaser
+        - resolver
+        - escrow_type
+        - status
+        - asset_code
+        - asset_issuer
+        - amount
+        - booking_id
+        - room_id
+        - hotel_id
+        - check_in_date
+        - check_out_date
+        - escrow_metadata
+        - booking_metadata
+      set:
+        tenant_id: safetrust
+        guest_id: X-Hasura-User-Id
+    comment: Guests can create escrows for themselves
+update_permissions:
+  - role: tenant
+    permission:
+      columns:
+        - status
+        - balance
+        - escrow_metadata
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - guest_id:
+              _eq: X-Hasura-User-Id
+      check:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - guest_id:
+              _eq: X-Hasura-User-Id
+    comment: Guests can advance the status of their own escrows
+  - role: landlord
+    permission:
+      columns:
+        - status
+        - balance
+        - booking_metadata
+        - escrow_metadata
+      filter:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - marker:
+              _eq: X-Hasura-User-Id
+      check:
+        _and:
+          - tenant_id:
+              _eq: safetrust
+          - marker:
+              _eq: X-Hasura-User-Id
+    comment: Hosts can advance the status of escrows they marked
