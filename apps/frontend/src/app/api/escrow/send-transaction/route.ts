@@ -12,6 +12,7 @@ type SendTransactionRequestBody = {
   senderAddress?: string;
   receiverAddress?: string;
   amount?: number;
+  status?: string;
 };
 
 type SendTransactionResult = {
@@ -25,7 +26,7 @@ type SendTransactionResult = {
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as SendTransactionRequestBody;
-    const { signedXdr, contractId, engagementId, propertyId, senderAddress, receiverAddress, amount } = body;
+    const { signedXdr, contractId, engagementId, propertyId, senderAddress, receiverAddress, amount, status } = body;
 
     if (!signedXdr || !contractId || !engagementId || !senderAddress || !receiverAddress) {
       return NextResponse.json(
@@ -39,7 +40,7 @@ export async function POST(request: NextRequest) {
       body: { signedXdr },
     });
 
-    const updateResult = await updateEscrowStatus(engagementId, 'funded');
+    const updateResult = await updateEscrowStatus(engagementId, status ?? 'funded');
     if (updateResult.update_escrows.affected_rows === 0) {
       return NextResponse.json(
         { error: `No escrow record found for engagementId: ${engagementId}` },
