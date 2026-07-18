@@ -36,7 +36,6 @@ type EscrowRow = {
 type TrustlessWorkEscrowRow = {
   contract_id?: string | null;
   status?: string | null;
-  asset_code?: string | null;
   asset_issuer?: string | null;
   marker?: string | null;
   booking_id?: string | null;
@@ -134,7 +133,7 @@ const mapEscrows = (
       status: mapEscrowStatus(escrow.status),
       amount: Number(escrow.amount) || 0,
       asset: {
-        code: trustlessWorkEscrow?.asset_code ?? "USDC",
+        code: "USDC",
         issuer: trustlessWorkEscrow?.asset_issuer ?? undefined,
       },
       metadata: {

@@ -44,7 +44,6 @@ export const GET_ESCROWS = gql`
       id
       contract_id
       status
-      asset_code
       asset_issuer
       marker
       booking_id
