@@ -10,7 +10,7 @@ import { truncateStellarAddress } from '@/lib/utils';
 type EscrowPayFlowProps = {
   apartmentId: string;
   apartmentName: string;
-  ownerAddress: string;
+  ownerWalletAddress: string;
   amount: number;
 };
 
@@ -56,7 +56,7 @@ const flowStyles = {
 export function EscrowPayFlow({
   apartmentId,
   apartmentName,
-  ownerAddress,
+  ownerWalletAddress,
   amount,
 }: EscrowPayFlowProps) {
   const router = useRouter();
@@ -93,7 +93,7 @@ export function EscrowPayFlow({
         body: JSON.stringify({
           apartmentId,
           senderAddress: address,
-          receiverAddress: ownerAddress,
+          receiverAddress: ownerWalletAddress,
           amount,
         }),
       });
@@ -129,11 +129,13 @@ export function EscrowPayFlow({
         },
         body: JSON.stringify({
           signedXdr,
+          action: 'initialize',
           contractId: deployState.contractId,
           engagementId: deployState.engagementId,
-          propertyId: apartmentId,
+          apartmentId,
           senderAddress: address,
-          receiverAddress: ownerAddress,
+          receiverAddress: ownerWalletAddress,
+          releaser: process.env.NEXT_PUBLIC_PLATFORM_ADDRESS,
           amount,
         }),
       });
