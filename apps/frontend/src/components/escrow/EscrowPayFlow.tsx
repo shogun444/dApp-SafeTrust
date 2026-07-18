@@ -14,6 +14,8 @@ type EscrowPayFlowProps = {
   amount: number;
 };
 
+const STELLAR_ADDRESS_RE = /^G[A-Z2-7]{55}$/;
+
 type DeployResponse = {
   contractId: string;
   unsignedXDR: string;
@@ -67,6 +69,8 @@ export function EscrowPayFlow({
   const [deployState, setDeployState] = useState<DeployResponse | null>(null);
 
   const isWalletConnected = Boolean(address);
+  const hasOwnerWallet = STELLAR_ADDRESS_RE.test(ownerWalletAddress);
+  const canPay = isWalletConnected && hasOwnerWallet;
 
   const payButtonLabel = useMemo(() => {
     if (deploying) return 'Deploying escrow...';
@@ -77,6 +81,11 @@ export function EscrowPayFlow({
   const handleDeploy = async () => {
     if (!address) {
       setErrorMessages(['Connect your Stellar wallet before deploying escrow.']);
+      return;
+    }
+
+    if (!hasOwnerWallet) {
+      setErrorMessages(['Owner wallet not available — payment is disabled until the owner links a Stellar wallet.']);
       return;
     }
 
@@ -157,24 +166,26 @@ export function EscrowPayFlow({
   return (
     <>
       <span
-        style={{ display: 'inline-block', cursor: !isWalletConnected ? 'not-allowed' : undefined }}
+        style={{ display: 'inline-block', cursor: !canPay ? 'not-allowed' : undefined }}
         title={
-          !isWalletConnected
-            ? 'Connect wallet to pay'
-            : deployState
-              ? 'Sign and submit escrow transaction'
-              : `Deploy escrow for ${apartmentName}`
+          !hasOwnerWallet
+            ? 'Owner wallet not available'
+            : !isWalletConnected
+              ? 'Connect wallet to pay'
+              : deployState
+                ? 'Sign and submit escrow transaction'
+                : `Deploy escrow for ${apartmentName}`
         }
       >
         <button
           type="button"
           onClick={deployState ? handleSignAndSend : handleDeploy}
-          disabled={!isWalletConnected || deploying || signing}
+          disabled={!canPay || deploying || signing}
           style={{
             ...flowStyles.button,
-            opacity: !isWalletConnected || deploying || signing ? 0.7 : 1,
-            cursor: deploying || signing ? 'wait' : !isWalletConnected ? 'not-allowed' : 'pointer',
-            pointerEvents: !isWalletConnected ? 'none' : undefined,
+            opacity: !canPay || deploying || signing ? 0.7 : 1,
+            cursor: deploying || signing ? 'wait' : !canPay ? 'not-allowed' : 'pointer',
+            pointerEvents: !canPay ? 'none' : undefined,
           }}
         >
           {payButtonLabel}
@@ -183,7 +194,12 @@ export function EscrowPayFlow({
 
       <div style={flowStyles.panel}>
         <h3 style={{ marginTop: 0, marginBottom: '0.5rem' }}>Wallet signing</h3>
-        {!deployState && (
+        {!hasOwnerWallet && (
+          <p style={{ margin: 0, color: '#b91c1c', fontSize: '0.9rem' }}>
+            Owner wallet not available — payment is disabled until the owner links a Stellar wallet.
+          </p>
+        )}
+        {hasOwnerWallet && !deployState && (
           <p style={{ margin: 0, color: '#6b7280', fontSize: '0.9rem' }}>
             Deploy the escrow first, then Freighter will open so you can sign the XDR.
           </p>
