@@ -120,8 +120,18 @@ select_permissions:
         _and:
           - tenant_id:
               _eq: safetrust
-          - marker:
-              _eq: X-Hasura-User-Id
+          - _exists:
+              _table:
+                name: user_wallets
+                schema: public
+              _where:
+                _and:
+                  - user_id:
+                      _eq: X-Hasura-User-Id
+                  - wallet_address:
+                      _ceq:
+                        - "$"
+                        - marker
     comment: Hosts can read the escrows they marked
 insert_permissions:
   - role: tenant
