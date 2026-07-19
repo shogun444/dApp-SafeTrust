@@ -6,7 +6,7 @@ import { trustlessWork } from '../../lib/trustlesswork.js';
  * unsigned XDR for the browser to sign with Freighter. The API key stays server-side.
  */
 export async function changeMilestoneStatusHandler(req, res) {
-  const { contractId, milestoneIndex, newEvidence, newStatus, serviceProvider } = req.body;
+  const { contractId, milestoneIndex, newEvidence, newStatus, serviceProvider } = req.body || {};
 
   const missing = [];
   if (!contractId) missing.push('contractId');

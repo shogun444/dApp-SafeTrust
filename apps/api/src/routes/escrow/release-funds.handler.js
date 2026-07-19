@@ -6,7 +6,7 @@ import { trustlessWork } from '../../lib/trustlesswork.js';
  * for the browser to sign with Freighter. The API key stays server-side.
  */
 export async function releaseFundsHandler(req, res) {
-  const { contractId, releaseSigner } = req.body;
+  const { contractId, releaseSigner } = req.body || {};
 
   const missing = [];
   if (!contractId) missing.push('contractId');
