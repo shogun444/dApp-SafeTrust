@@ -65,6 +65,14 @@ export interface NotificationData {
   escrowId?: string;
 }
 
+const sortNotificationsByTimestamp = (notifications: NotificationData[]) =>
+  [...notifications].sort(
+    (a, b) =>
+      new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+  );
+
+const EMPTY_NOTIFICATIONS: NotificationData[] = [];
+
 export interface Milestone {
   id: string;
   name: string;
@@ -82,6 +90,7 @@ const formatNotificationTimestamp = (timestamp: string) => {
 interface RoleEscrowDashboardProps {
   userRole: "guest" | "hotel" | "admin";
   escrows?: EscrowData[];
+  totalEscrows?: number;
   notifications?: NotificationData[];
   isLoading?: boolean;
   error?: string | null;
@@ -91,7 +100,8 @@ interface RoleEscrowDashboardProps {
 export function RoleEscrowDashboard({
   userRole,
   escrows = [],
-  notifications: initialNotifications = [],
+  totalEscrows,
+  notifications: initialNotifications = EMPTY_NOTIFICATIONS,
   isLoading = false,
   error = null,
   onRefresh,
@@ -103,8 +113,27 @@ export function RoleEscrowDashboard({
   const isMountedRef = useRef(true);
   const isPollingRef = useRef(false);
 
+  useEffect(() => {
+    setNotifications((prev) => {
+      const mergedById = new Map(
+        prev.map((notification) => [notification.id, notification]),
+      );
+
+      initialNotifications.forEach((notification) => {
+        const existing = mergedById.get(notification.id);
+        mergedById.set(notification.id, {
+          ...notification,
+          read: existing?.read ?? notification.read,
+        });
+      });
+
+      return sortNotificationsByTimestamp(Array.from(mergedById.values()));
+    });
+  }, [initialNotifications]);
+
    // Real-time updates using Trustless Work notifications
    useEffect(() => {
+     isMountedRef.current = true;
      if (isLoading) return;
 
      const checkUpdates = async () => {
@@ -131,7 +160,7 @@ export function RoleEscrowDashboard({
              const newNotifications = uniqueNotifications.filter(
                (n) => !existingIds.has(n.id),
              );
-             return [...prev, ...newNotifications];
+             return sortNotificationsByTimestamp([...prev, ...newNotifications]);
            });
          }
        } catch (error) {
@@ -204,7 +233,7 @@ export function RoleEscrowDashboard({
                   Total Escrows
                 </p>
                 <p className="text-2xl font-bold mt-1 dark:text-white">
-                  {escrows.length}
+                  {totalEscrows ?? escrows.length}
                 </p>
               </div>
               <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/30">

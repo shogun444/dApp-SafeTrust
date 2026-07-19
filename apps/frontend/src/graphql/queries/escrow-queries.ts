@@ -6,6 +6,7 @@ export const GET_ESCROWS = gql`
     $limit: Int!
     $offset: Int!
     $where: escrows_bool_exp = {}
+    $recentWhere: escrows_bool_exp = {}
     $trustlessWorkWhere: trustless_work_escrows_bool_exp = {}
   ) {
     escrows(
@@ -35,6 +36,28 @@ export const GET_ESCROWS = gql`
     escrows_aggregate(where: $where) {
       aggregate {
         count
+      }
+    }
+    recent_escrows: escrows(
+      where: $recentWhere
+      order_by: { updated_at: desc }
+    ) {
+      id
+      contract_id
+      engagement_id
+      amount
+      status
+      created_at
+      updated_at
+      sender_address
+      receiver_address
+      apartment {
+        id
+        name
+        address
+        image_urls
+        available_from
+        available_until
       }
     }
     trustless_work_escrows(

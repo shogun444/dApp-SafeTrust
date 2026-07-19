@@ -46,14 +46,22 @@ type TrustlessWorkEscrowRow = {
 
 type GetEscrowsDashboardQuery = {
   escrows?: EscrowRow[];
+  recent_escrows?: EscrowRow[];
+  escrows_aggregate?: {
+    aggregate?: {
+      count?: number | null;
+    } | null;
+  };
   trustless_work_escrows?: TrustlessWorkEscrowRow[];
 };
 
 type EscrowFilter = {
-  _or: Array<{
+  _and?: Array<EscrowFilter>;
+  _or?: Array<{
     sender_address?: { _eq: string };
     receiver_address?: { _eq: string };
   }>;
+  updated_at?: { _gte: string };
 };
 
 type TrustlessWorkEscrowFilter = {
@@ -69,8 +77,15 @@ type GetEscrowsDashboardVariables = {
   limit: number;
   offset: number;
   where: EscrowFilter;
+  recentWhere: EscrowFilter;
   trustlessWorkWhere: TrustlessWorkEscrowFilter;
 };
+
+const normalizeWalletAddress = (value: unknown) =>
+  typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+
+const getRecentEscrowCutoff = () =>
+  new Date(Date.now() - ONE_DAY_IN_MS).toISOString();
 
 const getStoredWalletAddress = () => {
   if (typeof window === "undefined") return null;
@@ -83,9 +98,11 @@ const getStoredWalletAddress = () => {
 
   try {
     const parsed = JSON.parse(storedWallet);
-    return typeof parsed === "string" ? parsed : parsed?.address ?? null;
+    return normalizeWalletAddress(
+      typeof parsed === "string" ? parsed : parsed?.address,
+    );
   } catch {
-    return storedWallet;
+    return normalizeWalletAddress(storedWallet);
   }
 };
 
@@ -97,6 +114,10 @@ const mapEscrowStatus = (status?: string | null): DashboardEscrowStatus => {
     case "active":
     case "milestone_approved":
       return "funded";
+    case "check_in_approved":
+      return "check_in_approved";
+    case "check_out_approved":
+      return "check_out_approved";
     case "completed":
     case "resolved":
       return "completed";
@@ -130,7 +151,7 @@ const mapEscrows = (
     return {
       id: escrow.id,
       contractId: escrow.contract_id ?? escrow.id,
-      status: mapEscrowStatus(escrow.status),
+      status: mapEscrowStatus(escrow.status || trustlessWorkEscrow?.status),
       amount: Number(escrow.amount) || 0,
       asset: {
         code: "USDC",
@@ -206,19 +227,34 @@ export function RoleEscrowDashboardPage() {
   const [userRole, setUserRole] = useState<"guest" | "hotel" | "admin">("guest");
   const storeAddress = useGlobalAuthenticationStore((state) => state.address);
   const [storedAddress, setStoredAddress] = useState<string | null>(null);
+  const [recentEscrowCutoff, setRecentEscrowCutoff] = useState(
+    getRecentEscrowCutoff,
+  );
 
   const walletAddress = storeAddress ?? storedAddress;
 
   const variables = useMemo<GetEscrowsDashboardVariables | undefined>(() => {
     if (!walletAddress) return undefined;
 
+    const walletEscrowFilter: EscrowFilter = {
+      _or: [
+        { sender_address: { _eq: walletAddress } },
+        { receiver_address: { _eq: walletAddress } },
+      ],
+    };
+
     return {
       limit: DASHBOARD_ESCROW_LIMIT,
       offset: 0,
-      where: {
-        _or: [
-          { sender_address: { _eq: walletAddress } },
-          { receiver_address: { _eq: walletAddress } },
+      where: walletEscrowFilter,
+      recentWhere: {
+        _and: [
+          walletEscrowFilter,
+          {
+            updated_at: {
+              _gte: recentEscrowCutoff,
+            },
+          },
         ],
       },
       trustlessWorkWhere: {
@@ -230,7 +266,7 @@ export function RoleEscrowDashboardPage() {
         ],
       },
     };
-  }, [walletAddress]);
+  }, [recentEscrowCutoff, walletAddress]);
 
   const { data, loading, error, refetch } = useQuery<
     GetEscrowsDashboardQuery,
@@ -251,17 +287,32 @@ export function RoleEscrowDashboardPage() {
     [data?.escrows, data?.trustless_work_escrows],
   );
 
+  const recentEscrows = useMemo(
+    () => mapEscrows(data?.recent_escrows, data?.trustless_work_escrows),
+    [data?.recent_escrows, data?.trustless_work_escrows],
+  );
+
   const notifications = useMemo(
-    () => deriveNotifications(escrows),
-    [escrows],
+    () => deriveNotifications(recentEscrows),
+    [recentEscrows],
   );
 
   const handleRefresh = useCallback(() => {
     setUserRole(getUserRole() ?? "guest");
     setStoredAddress(getStoredWalletAddress());
+    const nextRecentEscrowCutoff = getRecentEscrowCutoff();
+    setRecentEscrowCutoff(nextRecentEscrowCutoff);
 
     if (variables) {
-      void refetch(variables);
+      void refetch({
+        ...variables,
+        recentWhere: {
+          _and: [
+            variables.where,
+            { updated_at: { _gte: nextRecentEscrowCutoff } },
+          ],
+        },
+      });
     }
   }, [refetch, variables]);
 
@@ -269,6 +320,7 @@ export function RoleEscrowDashboardPage() {
     <RoleEscrowDashboard
       userRole={userRole}
       escrows={escrows}
+      totalEscrows={data?.escrows_aggregate?.aggregate?.count ?? escrows.length}
       notifications={notifications}
       isLoading={loading}
       error={error ? "Failed to load escrow dashboard data." : null}
