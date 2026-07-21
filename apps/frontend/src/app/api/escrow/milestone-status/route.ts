@@ -29,6 +29,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const validStatuses = ['completed'];
+    const resolvedStatus = newStatus ?? 'completed';
+    if (!validStatuses.includes(resolvedStatus)) {
+      return NextResponse.json(
+        { error: `Invalid newStatus: must be one of ${validStatuses.join(', ')}.` },
+        { status: 400 },
+      );
+    }
+
+    const resolvedIndex = milestoneIndex ?? 0;
+    if (!Number.isInteger(resolvedIndex) || resolvedIndex < 0) {
+      return NextResponse.json(
+        { error: 'Invalid milestoneIndex: must be a non-negative integer.' },
+        { status: 400 },
+      );
+    }
+
     const result = await trustlessWorkRequest<ChangeMilestoneStatusResponse>(
       '/escrow/single-release/v2/change-milestone-status',
       {
@@ -38,8 +55,8 @@ export async function POST(request: NextRequest) {
           serviceProvider,
           updates: [
             {
-              index: milestoneIndex ?? 0,
-              newStatus: newStatus ?? 'completed',
+              index: resolvedIndex,
+              newStatus: resolvedStatus,
               ...(newEvidence ? { newEvidence } : {}),
             },
           ],
@@ -62,8 +79,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const messages = getErrorMessages(error, 'Failed to build milestone status transaction.');
     return NextResponse.json(
-      { error: getErrorMessages(error, 'Failed to build milestone status transaction.') },
+      { error: messages[0], messages },
       { status: 500 },
     );
   }

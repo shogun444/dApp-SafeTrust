@@ -35,12 +35,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const allowedStatuses = ['funded', 'milestone_approved', 'completed'];
+    const resolvedStatus = status ?? 'funded';
+    if (!allowedStatuses.includes(resolvedStatus)) {
+      return NextResponse.json(
+        { error: `Invalid status: must be one of ${allowedStatuses.join(', ')}.` },
+        { status: 400 },
+      );
+    }
+
     const result = await trustlessWorkRequest<SendTransactionResult>('/helper/send-transaction', {
       method: 'POST',
       body: { signedXdr },
     });
 
-    const updateResult = await updateEscrowStatus(engagementId, status ?? 'funded');
+    if (result.contractId !== contractId || result.engagementId !== engagementId) {
+      return NextResponse.json(
+        { error: 'Transaction result does not match the requested contract and engagement.' },
+        { status: 409 },
+      );
+    }
+
+    const updateResult = await updateEscrowStatus(engagementId, resolvedStatus);
     if (updateResult.update_escrows.affected_rows === 0) {
       return NextResponse.json(
         { error: `No escrow record found for engagementId: ${engagementId}` },
@@ -57,8 +73,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const messages = getErrorMessages(error, 'Failed to send transaction.');
     return NextResponse.json(
-      { error: getErrorMessages(error, 'Failed to send transaction.') },
+      { error: messages[0], messages },
       { status: 500 },
     );
   }

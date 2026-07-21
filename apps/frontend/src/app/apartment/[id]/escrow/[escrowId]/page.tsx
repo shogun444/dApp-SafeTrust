@@ -308,10 +308,16 @@ function getEscrowViewConfig(status: EscrowStatus): ViewConfig {
         title: 'Deposit / Escrow Released',
         step: 4,
       };
-    default:
+    case 'disputed':
+      return {
+        label: 'blocked',
+        title: 'Payment batch - Disputed',
+        step: 3,
+      };
+    case 'cancelled':
       return {
         label: 'paid',
-        title: 'Payment batch',
+        title: 'Payment batch - Cancelled',
         step: 2,
       };
   }
@@ -873,12 +879,16 @@ export default function EscrowDetailPage({
   const isMarker = address && escrow?.receiver_address && address.toLowerCase() === escrow.receiver_address.toLowerCase();
   const isReleaseSigner = address && platformAddress && address.toLowerCase() === platformAddress.toLowerCase();
 
-  const showFundButton = (status === 'created' || status === 'pending_signature') && isApprover;
-  const showMilestoneButton = status === 'funded' && isMarker;
-  const showReleaseButton = status === 'milestone_approved' && isReleaseSigner;
+  const canFund = status === 'created' || status === 'pending_signature';
+  const canMarkMilestone = status === 'funded';
+  const canRelease = status === 'milestone_approved';
+
+  const showFundButton = canFund && isApprover;
+  const showMilestoneButton = canMarkMilestone && isMarker;
+  const showReleaseButton = canRelease && isReleaseSigner;
 
   const handleFundEscrow = useCallback(async () => {
-    if (!escrow?.contract_id || !address || !escrow.engagement_id || !escrow.amount) {
+    if (!escrow?.contract_id || !address || !escrow.engagement_id || !escrow.amount || !escrow.receiver_address) {
       setErrorMessages(['Missing required escrow data for funding.']);
       return;
     }
@@ -939,7 +949,7 @@ export default function EscrowDetailPage({
   }, [escrow, address, signXDR]);
 
   const handleMarkCompleted = useCallback(async () => {
-    if (!escrow?.contract_id || !address || !escrow.engagement_id) {
+    if (!escrow?.contract_id || !address || !escrow.engagement_id || !escrow.sender_address) {
       setErrorMessages(['Missing required escrow data for milestone update.']);
       return;
     }
@@ -1001,7 +1011,7 @@ export default function EscrowDetailPage({
   }, [escrow, address, signXDR]);
 
   const handleReleaseFunds = useCallback(async () => {
-    if (!escrow?.contract_id || !address || !escrow.engagement_id) {
+    if (!escrow?.contract_id || !address || !escrow.engagement_id || !escrow.sender_address || !escrow.receiver_address) {
       setErrorMessages(['Missing required escrow data for release.']);
       return;
     }
@@ -1210,7 +1220,7 @@ export default function EscrowDetailPage({
               />
             )}
 
-            {!address && (showFundButton || showMilestoneButton || showReleaseButton) && (
+            {!address && (canFund || canMarkMilestone || canRelease) && (
               <div style={{ marginTop: '1rem', padding: '0.75rem', backgroundColor: '#fef3c7', borderRadius: '0.5rem', border: '1px solid #fcd34d' }}>
                 <p style={{ margin: 0, fontSize: '0.85rem', color: '#92400e' }}>
                   Connect your Stellar wallet to perform this action.

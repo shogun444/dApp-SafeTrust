@@ -57,8 +57,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const messages = getErrorMessages(error, 'Failed to build fund transaction.');
     return NextResponse.json(
-      { error: getErrorMessages(error, 'Failed to build fund transaction.') },
+      { error: messages[0], messages },
       { status: 500 },
     );
   }

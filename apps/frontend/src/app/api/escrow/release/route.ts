@@ -49,8 +49,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const messages = getErrorMessages(error, 'Failed to build release transaction.');
     return NextResponse.json(
-      { error: getErrorMessages(error, 'Failed to build release transaction.') },
+      { error: messages[0], messages },
       { status: 500 },
     );
   }
