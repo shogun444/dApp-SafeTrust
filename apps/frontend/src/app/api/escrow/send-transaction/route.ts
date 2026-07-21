@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 import { getErrorMessages } from '@/lib/trustlesswork-errors';
 import { TrustlessWorkRequestError, trustlessWorkRequest } from '@/lib/server/trustlesswork';
-import { updateEscrowStatus } from '@/lib/server/hasura';
+import { updateEscrowStatus, getEscrowByEngagementId } from '@/lib/server/hasura';
 
 type SendTransactionRequestBody = {
   signedXdr?: string;
@@ -41,6 +41,30 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: `Invalid status: must be one of ${allowedStatuses.join(', ')}.` },
         { status: 400 },
+      );
+    }
+
+    const VALID_TRANSITIONS: Record<string, string[]> = {
+      created: ['funded', 'cancelled'],
+      pending_signature: ['funded', 'cancelled'],
+      funded: ['milestone_approved', 'cancelled'],
+      active: ['milestone_approved', 'cancelled'],
+      milestone_approved: ['completed', 'disputed'],
+    };
+
+    const currentEscrow = await getEscrowByEngagementId(engagementId);
+    if (!currentEscrow) {
+      return NextResponse.json(
+        { error: `No escrow record found for engagementId: ${engagementId}` },
+        { status: 404 },
+      );
+    }
+
+    const allowedNext = VALID_TRANSITIONS[currentEscrow.status];
+    if (!allowedNext || !allowedNext.includes(resolvedStatus)) {
+      return NextResponse.json(
+        { error: `Invalid state transition: ${currentEscrow.status} -> ${resolvedStatus} is not allowed.` },
+        { status: 409 },
       );
     }
 
