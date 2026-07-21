@@ -91,32 +91,6 @@ export async function insertEscrowRecord(input: InsertEscrowInput): Promise<Inse
   );
 }
 
-type EscrowRecord = {
-  status: string;
-  contract_id: string;
-  engagement_id: string;
-};
-
-type GetEscrowResult = {
-  escrows: EscrowRecord[];
-};
-
-export async function getEscrowByEngagementId(
-  engagementId: string,
-): Promise<EscrowRecord | null> {
-  const data = await hasuraRequest<GetEscrowResult>(
-    `query GetEscrowByEngagementId($engagement_id: String!) {
-      escrows(where: { engagement_id: { _eq: $engagement_id } }, limit: 1) {
-        status
-        contract_id
-        engagement_id
-      }
-    }`,
-    { engagement_id: engagementId },
-  );
-  return data.escrows[0] ?? null;
-}
-
 type UpdateEscrowStatusResult = {
   update_escrows: { affected_rows: number };
 };
