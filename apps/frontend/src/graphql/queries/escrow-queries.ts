@@ -128,6 +128,9 @@ export const GET_ESCROW_BY_ANY_ID = gql`
           email
           phone_number
           country_code
+          user_wallets(where: { is_primary: { _eq: true } }, limit: 1) {
+            wallet_address
+          }
         }
       }
     }
