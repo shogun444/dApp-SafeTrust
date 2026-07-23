@@ -170,7 +170,7 @@ describe('dbApproveMilestone', () => {
     mockHasura
       .mockResolvedValueOnce({ trustlessWorkEscrows: [{ id: ESCROW_ID }] })
       .mockResolvedValueOnce({ update_escrowMilestones: { returning: [{ id: 'm1' }] } })
-      .mockResolvedValueOnce({ escrowMilestones_aggregate: { aggregate: { totalCount: 2 } } })
+      .mockResolvedValueOnce({ escrowMilestones_aggregate: { aggregate: { count: 2 } } })
       .mockResolvedValueOnce({ escrowMilestones_aggregate: { aggregate: { count: 1 } } });
 
     await dbApproveMilestone(CONTRACT_ID, 'check_in', 'GAPPROVER');
