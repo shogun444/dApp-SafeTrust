@@ -70,6 +70,10 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
   }
 
+  if (!body || typeof body !== 'object' || Array.isArray(body)) {
+    return NextResponse.json({ error: 'Invalid JSON body.' }, { status: 400 });
+  }
+
   const {
     signedXdr,
     action,
