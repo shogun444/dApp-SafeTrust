@@ -358,4 +358,61 @@ describe('POST /helper/send-transaction — edge case validation', () => {
     expect(res.status).toBe(400);
     expect((await res.json()).error).toMatch(/engagementId/);
   });
+
+  it('400 when JSON body is null', async () => {
+    const res = await POST(req(null));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Invalid JSON body/);
+  });
+
+  it('400 when JSON body is an array', async () => {
+    const res = await POST(req([]));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/Invalid JSON body/);
+  });
+
+  it('400 when signedXdr is empty string', async () => {
+    const res = await POST(req({ signedXdr: '', action: 'fund', contractId: 'CA1234', amount: 100 }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/signedXdr/);
+  });
+
+  it('400 when contractId is whitespace-only string', async () => {
+    const res = await POST(req({ signedXdr: 'AAAA...', action: 'fund', contractId: '  ' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/contractId/);
+  });
+
+  it('400 when engagementId is empty string for initialize', async () => {
+    const res = await POST(req({
+      signedXdr: 'AAAA...', action: 'initialize', contractId: 'CA1234',
+      engagementId: '', propertyId: 'p', senderAddress: 's', receiverAddress: 'r', releaser: 'rl', amount: 100,
+    }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/engagementId/);
+  });
+});
+
+describe('POST /helper/send-transaction — idempotent legacy insert', () => {
+  it('reuses existing public.escrows ID when record already exists', async () => {
+    mockInit.mockResolvedValueOnce();
+    mockHasuraRequest.mockResolvedValueOnce({ escrows: [{ id: 'existing-escrow-id' }] });
+
+    const res = await POST(req(initPayload));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.escrowId).toBe('existing-escrow-id');
+    expect(mockInsertEscrow).not.toHaveBeenCalled();
+  });
+
+  it('inserts new record when no existing public.escrows found', async () => {
+    mockInit.mockResolvedValueOnce();
+    mockHasuraRequest.mockResolvedValueOnce({ escrows: [] });
+
+    const res = await POST(req(initPayload));
+
+    expect(res.status).toBe(200);
+    expect(mockInsertEscrow).toHaveBeenCalledTimes(1);
+  });
 });
