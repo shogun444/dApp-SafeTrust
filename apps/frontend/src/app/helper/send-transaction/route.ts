@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
 
   try {
     switch (action) {
-      case 'initialize':
+      case 'initialize': {
         await dbInitializeEscrow({
           contractId: resolvedContractId,
           engagementId: engagementId!,
@@ -184,6 +184,7 @@ export async function POST(request: NextRequest) {
         });
         insertedId = record.insert_escrows_one.id;
         break;
+      }
       case 'fund':
         await dbFundEscrow(resolvedContractId, amount!);
         break;
