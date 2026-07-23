@@ -12,6 +12,7 @@ vi.mock('@/lib/server/escrow-db', () => ({
 }));
 
 vi.mock('@/lib/server/hasura', () => ({
+  hasuraRequest: vi.fn(),
   insertEscrowRecord: vi.fn(),
 }));
 
@@ -44,7 +45,7 @@ import {
   dbDisputeEscrow,
   dbResolveDispute,
 } from '@/lib/server/escrow-db';
-import { insertEscrowRecord } from '@/lib/server/hasura';
+import { hasuraRequest, insertEscrowRecord } from '@/lib/server/hasura';
 import { trustlessWorkRequest, TrustlessWorkRequestError } from '@/lib/server/trustlesswork';
 
 const mockTw = vi.mocked(trustlessWorkRequest);
@@ -54,6 +55,7 @@ const mockApprove = vi.mocked(dbApproveMilestone);
 const mockRelease = vi.mocked(dbReleaseFunds);
 const mockDispute = vi.mocked(dbDisputeEscrow);
 const mockResolve = vi.mocked(dbResolveDispute);
+const mockHasuraRequest = vi.mocked(hasuraRequest);
 const mockInsertEscrow = vi.mocked(insertEscrowRecord);
 
 function req(body: unknown) {
@@ -115,6 +117,7 @@ const resolvePayload = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockTw.mockResolvedValue(twSuccess() as never);
+  mockHasuraRequest.mockResolvedValue({ escrows: [] });
   mockInsertEscrow.mockResolvedValue({ insert_escrows_one: { id: 'default-escrow-id' } });
 });
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-import { insertEscrowRecord } from '@/lib/server/hasura';
+import { hasuraRequest, insertEscrowRecord } from '@/lib/server/hasura';
 import { getErrorMessages } from '@/lib/trustlesswork-errors';
 import {
   extractTransactionHash,
@@ -173,16 +173,26 @@ export async function POST(request: NextRequest) {
           releaser: releaser!,
           amount: amount!,
         });
-        const record = await insertEscrowRecord({
-          contractId: resolvedContractId,
-          engagementId: engagementId!,
-          propertyId: propertyId!,
-          senderAddress: senderAddress!,
-          receiverAddress: receiverAddress!,
-          amount: amount!,
-          status: 'funded',
-        });
-        insertedId = record.insert_escrows_one.id;
+        const existing = await hasuraRequest<{ escrows: { id: string }[] }>(
+          `query FindEscrowByContractId($contractId: String!) {
+            escrows(where: { contract_id: { _eq: $contractId } }) { id }
+          }`,
+          { contractId: resolvedContractId },
+        );
+        if (existing.escrows.length > 0) {
+          insertedId = existing.escrows[0].id;
+        } else {
+          const record = await insertEscrowRecord({
+            contractId: resolvedContractId,
+            engagementId: engagementId!,
+            propertyId: propertyId!,
+            senderAddress: senderAddress!,
+            receiverAddress: receiverAddress!,
+            amount: amount!,
+            status: 'funded',
+          });
+          insertedId = record.insert_escrows_one.id;
+        }
         break;
       }
       case 'fund':
