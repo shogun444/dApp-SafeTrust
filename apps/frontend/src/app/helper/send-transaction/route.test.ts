@@ -115,6 +115,7 @@ const resolvePayload = {
 beforeEach(() => {
   vi.clearAllMocks();
   mockTw.mockResolvedValue(twSuccess() as never);
+  mockInsertEscrow.mockResolvedValue({ insert_escrows_one: { id: 'default-escrow-id' } });
 });
 
 describe('POST /helper/send-transaction — validation', () => {
@@ -309,8 +310,49 @@ describe('POST /helper/send-transaction — error handling', () => {
     const body = await res.json();
     expect(body).toMatchObject({
       status: 'SUCCESS',
+      message: 'ok',
       contractId: 'CA1234',
       transactionHash: 'tx-hash-123',
     });
+  });
+
+  it('returns 200 with escrowId on initialize success', async () => {
+    mockInit.mockResolvedValueOnce();
+    mockInsertEscrow.mockResolvedValueOnce({ insert_escrows_one: { id: 'esc-escrow-456' } });
+
+    const res = await POST(req(initPayload));
+
+    expect(res.status).toBe(200);
+    const body = await res.json();
+    expect(body.escrowId).toBe('esc-escrow-456');
+  });
+});
+
+describe('POST /helper/send-transaction — edge case validation', () => {
+  it('400 when initialize amount is negative', async () => {
+    const res = await POST(req({ ...initPayload, amount: -50 }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/positive number/);
+  });
+
+  it('400 when fund amount is zero', async () => {
+    const res = await POST(req({ ...fundPayload, amount: 0 }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/positive number/);
+  });
+
+  it('400 when fund amount is NaN', async () => {
+    const res = await POST(req({ ...fundPayload, amount: 'not-a-number' }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/positive number/);
+  });
+
+  it('400 when required field is null (not just undefined)', async () => {
+    const res = await POST(req({
+      signedXdr: 'AAAA...', action: 'initialize', contractId: 'CA1234',
+      engagementId: null, propertyId: 'p', senderAddress: 's', receiverAddress: 'r', releaser: 'rl', amount: 100,
+    }));
+    expect(res.status).toBe(400);
+    expect((await res.json()).error).toMatch(/engagementId/);
   });
 });

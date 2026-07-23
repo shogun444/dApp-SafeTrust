@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const missing = REQUIRED_FIELDS[action].filter((field) => body[field] === undefined);
+  const missing = REQUIRED_FIELDS[action].filter((field) => body[field] == null);
   if (missing.length > 0) {
     return NextResponse.json(
       { error: `${action} action requires: contractId, ${missing.join(', ')}` },
@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (action === 'initialize') {
+  if (action === 'initialize' || action === 'fund') {
     if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
       return NextResponse.json(
         { error: 'Invalid amount: must be a positive number.' },
@@ -149,6 +149,7 @@ export async function POST(request: NextRequest) {
   }
 
   const resolvedContractId = (result.contractId as string | undefined) ?? contractId;
+  let insertedId: string | undefined;
 
   try {
     switch (action) {
@@ -162,7 +163,7 @@ export async function POST(request: NextRequest) {
           releaser: releaser!,
           amount: amount!,
         });
-        await insertEscrowRecord({
+        const record = await insertEscrowRecord({
           contractId: resolvedContractId,
           engagementId: engagementId!,
           propertyId: propertyId!,
@@ -171,6 +172,7 @@ export async function POST(request: NextRequest) {
           amount: amount!,
           status: 'funded',
         });
+        insertedId = record.insert_escrows_one.id;
         break;
       case 'fund':
         await dbFundEscrow(resolvedContractId, amount!);
@@ -203,13 +205,14 @@ export async function POST(request: NextRequest) {
 
   const responsePayload: Record<string, unknown> = {
     status: result.status,
+    message: result.message,
     contractId: resolvedContractId,
     transactionHash: extractTransactionHash(result),
     engagementId,
   };
 
   if (action === 'initialize') {
-    responsePayload.escrowId = engagementId;
+    responsePayload.escrowId = insertedId;
   }
 
   return NextResponse.json(responsePayload);

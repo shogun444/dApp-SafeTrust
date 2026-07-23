@@ -142,7 +142,7 @@ describe('dbApproveMilestone', () => {
     mockHasura
       .mockResolvedValueOnce({ trustlessWorkEscrows: [{ id: ESCROW_ID }] })
       .mockResolvedValueOnce({ update_escrowMilestones: { returning: [{ id: 'm1' }] } })
-      .mockResolvedValueOnce({ escrowMilestones_aggregate: { aggregate: { totalCount: 1 } } })
+      .mockResolvedValueOnce({ escrowMilestones_aggregate: { aggregate: { count: 1 } } })
       .mockResolvedValueOnce({ escrowMilestones_aggregate: { aggregate: { count: 1 } } })
       .mockResolvedValueOnce(escrowReturning());
 
@@ -224,7 +224,7 @@ describe('dbReleaseFunds', () => {
     expect(mockHasura).toHaveBeenNthCalledWith(
       3,
       expect.stringContaining('mutation ReleaseMilestones'),
-      { escrowId: ESCROW_ID, releaseSigner: 'GRELEASER' },
+      expect.objectContaining({ escrowId: ESCROW_ID, releaseSigner: 'GRELEASER' }),
     );
   });
 
@@ -234,6 +234,17 @@ describe('dbReleaseFunds', () => {
       .mockResolvedValueOnce({ update_trustlessWorkEscrows: { returning: [] } });
 
     await expect(dbReleaseFunds(CONTRACT_ID, 'GRELEASER')).rejects.toThrow('Escrow not found');
+  });
+
+  it('throws when no approved milestones to release', async () => {
+    mockHasura
+      .mockResolvedValueOnce({ trustlessWorkEscrows: [{ id: ESCROW_ID }] })
+      .mockResolvedValueOnce(escrowReturning())
+      .mockResolvedValueOnce({ update_escrowMilestones: { returning: [] } });
+
+    await expect(dbReleaseFunds(CONTRACT_ID, 'GRELEASER')).rejects.toThrow(
+      'No approved milestones found',
+    );
   });
 });
 

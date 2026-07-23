@@ -31,7 +31,7 @@ type MilestoneUpdateResult = {
 type MilestoneAggResult = {
   escrowMilestones_aggregate: {
     aggregate: {
-      totalCount: number;
+      count: number;
     };
   };
 };
@@ -152,22 +152,24 @@ export async function dbApproveMilestone(
       $escrowId: uuid!
       $milestoneId: String!
       $approver: String!
+      $approvedAt: timestamptz!
     ) {
       update_escrowMilestones(
         where: {
           escrowId: { _eq: $escrowId }
           milestoneId: { _eq: $milestoneId }
+          status: { _eq: "pending" }
         }
         _set: {
           status: "approved"
           approvedBy: $approver
-          approvedAt: "now()"
+          approvedAt: $approvedAt
         }
       ) {
         returning { id }
       }
     }`,
-    { escrowId, milestoneId, approver },
+    { escrowId, milestoneId, approver, approvedAt: new Date().toISOString() },
   );
 
   if (milestoneResult.update_escrowMilestones.returning.length === 0) {
@@ -177,7 +179,7 @@ export async function dbApproveMilestone(
   const totalAgg = await hasuraRequest<MilestoneAggResult>(
     `query TotalMilestones($escrowId: uuid!) {
       escrowMilestones_aggregate(where: { escrowId: { _eq: $escrowId } }) {
-        aggregate { totalCount }
+        aggregate { count }
       }
     }`,
     { escrowId },
@@ -194,7 +196,7 @@ export async function dbApproveMilestone(
     { escrowId },
   );
 
-  const total = totalAgg.escrowMilestones_aggregate.aggregate.totalCount;
+  const total = totalAgg.escrowMilestones_aggregate.aggregate.count;
   const approved = approvedAgg.escrowMilestones_aggregate.aggregate.count;
 
   if (approved >= total) {
@@ -236,7 +238,11 @@ export async function dbReleaseFunds(contractId: string, releaseSigner: string):
   }
 
   const milestoneResult = await hasuraRequest<MilestoneUpdateResult>(
-    `mutation ReleaseMilestones($escrowId: uuid!, $releaseSigner: String!) {
+    `mutation ReleaseMilestones(
+      $escrowId: uuid!
+      $releaseSigner: String!
+      $releasedAt: timestamptz!
+    ) {
       update_escrowMilestones(
         where: {
           escrowId: { _eq: $escrowId }
@@ -245,14 +251,18 @@ export async function dbReleaseFunds(contractId: string, releaseSigner: string):
         _set: {
           status: "released"
           releasedBy: $releaseSigner
-          releasedAt: "now()"
+          releasedAt: $releasedAt
         }
       ) {
         returning { id }
       }
     }`,
-    { escrowId, releaseSigner },
+    { escrowId, releaseSigner, releasedAt: new Date().toISOString() },
   );
+
+  if (milestoneResult.update_escrowMilestones.returning.length === 0) {
+    throw new Error(`No approved milestones found for contractId: ${contractId}`);
+  }
 }
 
 export async function dbDisputeEscrow(contractId: string): Promise<void> {
