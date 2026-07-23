@@ -62,6 +62,9 @@ const REQUIRED_FIELDS: Record<EscrowAction, (keyof SendTransactionBody)[]> = {
   resolve_dispute: [],
 };
 
+const isNonEmptyString = (value: unknown): value is string =>
+  typeof value === 'string' && value.trim().length > 0;
+
 export async function POST(request: NextRequest) {
   let body: SendTransactionBody;
   try {
@@ -103,14 +106,17 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  if (!signedXdr || !contractId) {
+  if (!isNonEmptyString(signedXdr) || !isNonEmptyString(contractId)) {
     return NextResponse.json(
       { error: 'Missing required fields: signedXdr, contractId' },
       { status: 400 },
     );
   }
 
-  const missing = REQUIRED_FIELDS[action].filter((field) => body[field] == null);
+  const missing = REQUIRED_FIELDS[action].filter((field) => {
+    const value = body[field];
+    return value == null || (field !== 'amount' && !isNonEmptyString(value));
+  });
   if (missing.length > 0) {
     return NextResponse.json(
       { error: `${action} action requires: contractId, ${missing.join(', ')}` },
